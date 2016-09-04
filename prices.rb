@@ -6,9 +6,9 @@ require 'json'
 uri = URI('http://shopicruit.myshopify.com/products.json')
 page = 0
 total = 0
-Filter = [ "clock", "watch" ] # TODO What if we want to change this
+Filters = [ "clock", "watch" ] # TODO What if we want to change this
 
-loop { # TODO Maybe split the exploration from the collection. Maybe try streaming an implicit list.
+loop do # TODO Maybe split the exploration from the collection. Maybe try streaming an implicit list.
     page += 1
 
     params = { :page => page }
@@ -19,21 +19,16 @@ loop { # TODO Maybe split the exploration from the collection. Maybe try streami
 
     total +=
     products
-        .select { |product| # Filter for clocks and watches
-            Filter.any? { |filter| 
-                product["product_type"].downcase.include? filter
-            }
-        }
-        .each { |product|
-            p product["title"]
-        }
-        .flat_map { |product| # Extract prices of each variant and expand the enumerable(?) <-- TODO Not sure of terminology TODO What if we want to grab the cheapest variant?
-            product["variants"]
-                .map { |variant| variant["price"].to_f }
-        }
-        .inject(0) { |sum, price| # Sum the prices from all the item variants filtered
-            sum + price
-        }
-}
+    .select do |product| # Filters for clocks and watches
+        Filters.any? { |filter| product["product_type"].downcase.include? filter }
+    end
+    .each do |product|
+        p product["title"]
+    end
+    .flat_map do |product| # Extract prices of each variant and expand the enumerable(?) <-- TODO Not sure of terminology TODO What if we want to grab the cheapest variant?
+        product["variants"].map { |variant| variant["price"].to_f }
+    end
+    .reduce(:+) # Sum the prices from all the item variants filtered
+end
 
 puts total
