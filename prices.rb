@@ -22,15 +22,12 @@ loop { # TODO Maybe split the exploration from the collection. Maybe try streami
             product["product_type"].downcase.include? "clock" or
             product["product_type"].downcase.include? "watch"
         }
-        .map { |product| # Collect prices of all variants TODO What if we only want the cheapest of the variants?
+        .flat_map { |product| # Extract prices of each variant and expand the enumerable(?) <-- TODO Not sure of terminology TODO What if we want to grab the cheapest variant?
             product["variants"]
-                .map { |variant|
-                    variant["price"].to_f
-                }
-                .reduce(:+)
+                .map { |variant| variant["price"].to_f }
         }
-        .inject(0) { |sum, variant_total| # Collect the total sum of each variant
-            sum + variant_total.to_f 
+        .inject(0) { |sum, price| # Sum the prices from all the item variants filtered
+            sum + price
         }
 }
 
