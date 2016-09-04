@@ -6,7 +6,6 @@ require 'json'
 uri = URI('http://shopicruit.myshopify.com/products.json')
 page = 0
 total = 0
-#collector = Hash.new
 
 loop { # TODO Maybe split the exploration from the collection. Maybe try streaming an implicit list.
     page += 1
@@ -24,7 +23,11 @@ loop { # TODO Maybe split the exploration from the collection. Maybe try streami
             product["product_type"].downcase.include? "watch"
         }
         .map { |product| # Collect prices of all variants TODO What if we only want the cheapest of the variants?
-            product["variants"].map { |variant| variant["price"].to_f }.reduce(:+)
+            product["variants"]
+                .map { |variant|
+                    variant["price"].to_f
+                }
+                .reduce(:+)
         }
         .inject(0) { |sum, variant_total| # Collect the total sum of each variant
             sum + variant_total.to_f 
