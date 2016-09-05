@@ -3,35 +3,52 @@
 require 'net/http'
 require 'json'
 
-uri = URI('http://shopicruit.myshopify.com/products.json')
-page = 0
-total = 0
-Filters = [ "clock", "watch" ] # TODO What if we want to change this
 
-loop do # This part could be done more elegantly if we knew ahead of time the number of pages. We could build map and filter directly from the pages and avoid this loop. As a bonus, the lot can be run through parallel :(
-    page += 1
+class StoreProcessor
+    def initialize(storeUri)
+        # TODO Type checking?
+        @ProductsUri = storeUri
+        @ProductsUri.path = "/products.json"
+    end
 
-    params = { :page => page }
-    uri.query = URI.encode_www_form(params)
-    res = Net::HTTP.get_response(uri)
+    def getFilteredTotal(itemTypes) 
+        page = 0
+        total = 0
 
-    break if (products = JSON.parse(res.body)["products"]).empty?
+        puts "Getting total for item types #{itemTypes}"
 
-    total +=
-    products
-    .select do |product| # Filter for clocks and watches
-        Filters.any? { |filter| product["product_type"].downcase.include? filter }
+        loop do # This part could be done more elegantly if we knew ahead of time the number of pages. We could build map and filter directly from the pages and avoid this loop. As a bonus, the lot can be run through parallel :(
+            page += 1
+
+            params = { :page => page }
+            @ProductsUri.query = URI.encode_www_form(params)
+            res = Net::HTTP.get_response(@ProductsUri)
+
+            break if (products = JSON.parse(res.body)["products"]).empty?
+
+            total +=
+            products
+                .select do |product| # Filter for clocks and watches
+                    itemTypes.any? { |filter| product["product_type"].downcase.include? filter }
+                end
+                .each do |product|
+                    puts "\t" +  product["title"]
+                end
+                .flat_map do |product| # Extract prices of each variant 
+                    product["variants"].map { |variant| variant["price"].to_f }
+                end
+                .inject(0) { |sum, price| sum + price } # Sum the prices from all the item variants filtered
+        end
+
+        return total
     end
-    .each do |product|
-        p product["title"]
-    end
-    .flat_map do |product| # Extract prices of each variant 
-        product["variants"].map { |variant| variant["price"].to_f }
-    end
-    .each do |price|
-        p price
-    end
-    .reduce(:+) # Sum the prices from all the item variants filtered
 end
 
-puts total
+uri = URI('http://shopicruit.myshopify.com/')
+Types = [ "clock" ]
+
+processor = StoreProcessor.new(uri)
+puts processor.getFilteredTotal(Types);
+puts processor.getFilteredTotal([ "clock", "watch" ]);
+puts processor.getFilteredTotal([]);
+puts processor.getFilteredTotal(["Elephants"]);
