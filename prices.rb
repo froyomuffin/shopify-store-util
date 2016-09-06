@@ -5,7 +5,10 @@ require 'json'
 
 class StoreProcessor
     def initialize(storeUri)
-        # TODO Type checking?
+        if storeUri.class != URI::HTTP
+            raise ArgumentError, "Failed to construct StoreProcessor: No URI::HTTP object specified!"
+        end
+
         @ProductsUri = storeUri
         @ProductsUri.path = "/products.json"
     end
@@ -50,6 +53,12 @@ end
 uri = URI('http://shopicruit.myshopify.com/')
 
 processor = StoreProcessor.new(uri)
+
+begin
+    processor = StoreProcessor.new("nonsense")
+rescue ArgumentError
+    p "Caught error!"
+end
 
 Types = [ "clock" ]
 processor.getFilteredTotal(Types); puts
