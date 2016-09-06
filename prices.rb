@@ -53,7 +53,10 @@ end
 uri = URI('http://shopicruit.myshopify.com/')
 
 processor = StoreProcessor.new(uri)
+#processor = StoreProcessor.new(URI("http://google.com")) TODO Handle these exceptions
 
+#TODO Split these into tests
+=begin
 begin
     processor = StoreProcessor.new("nonsense")
 rescue ArgumentError
@@ -65,4 +68,6 @@ processor.getFilteredTotal(Types); puts
 processor.getFilteredTotal([]); puts
 processor.getFilteredTotal(["Elephants"]); puts
 processor.getFilteredTotal([ "clock", "watch" ]); puts
+=end
+
 processor.getFilteredTotal([ "clocK", "wAtch" ]); puts
