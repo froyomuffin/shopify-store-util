@@ -45,7 +45,7 @@ class StoreProcessor
 
         total = total.round(2)
 
-        puts "TOTAL: $#{'%.2f' % total}" # Some extra formatting to make sure we get exactly two decimals
+        puts "TOTAL: $#{format('%.2f', total)}" # Some extra formatting to make sure we get exactly two decimals
         return total
     end
 end
