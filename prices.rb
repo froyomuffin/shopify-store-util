@@ -4,83 +4,84 @@ require 'net/http'
 require 'json'
 
 class StoreProcessor
-    public
-    def initialize(storeUri)
-        if storeUri.class != URI::HTTP
-            raise ArgumentError, "Failed to construct StoreProcessor: No URI::HTTP object specified!"
+  public
+
+  def initialize(store_uri)
+    if store_uri.class != URI::HTTP
+      raise ArgumentError, 'Failed to construct StoreProcessor: No URI::HTTP object specified!'
+    end
+
+    @PRODUCTS_URI = store_uri
+    @PRODUCTS_URI.path = "/products.json"
+  end
+
+  def get_filtered_total(item_types) 
+    puts "Getting total for item types #{item_types} from #{@PRODUCTS_URI.host}"
+
+    page = 0
+    total = 0
+
+    loop do # This part could be done more elegantly if we knew ahead of time the number of pages. We could build map and filter directly from the pages and avoid this loop 
+      page += 1
+      params = { :page => page }
+      @PRODUCTS_URI.query = URI.encode_www_form(params)
+
+      products = fetch_products
+
+      break if products == nil || products.empty?
+
+      total +=
+      products
+      .select do |product| # Filter for clocks and watches
+        item_types.any? { |type| product['product_type'].downcase.include? type.downcase }
+      end
+      .flat_map do |product| # Extract prices of each variant 
+        puts product['title']
+        product['variants'].map do |variant| 
+          puts "  #{variant['title']} -> $#{variant['price']}"
+          variant['price'].to_f
         end
-
-        @ProductsUri = storeUri
-        @ProductsUri.path = "/products.json"
+      end
+      .inject(0) { |sum, price| sum + price } # Sum the prices from all the item variants filtered
     end
 
-    def getFilteredTotal(itemTypes) 
-        puts "Getting total for item types #{itemTypes} from #{@ProductsUri.host}"
+    puts "TOTAL: $#{format('%.2f', total)}" # Some extra formatting to make sure we get exactly two decimals
+    total
+  end
 
-        page = 0
-        total = 0
+  private
 
-        loop do # This part could be done more elegantly if we knew ahead of time the number of pages. We could build map and filter directly from the pages and avoid this loop 
-            page += 1
-            params = { :page => page }
-            @ProductsUri.query = URI.encode_www_form(params)
+  def fetch_products
+    response = Net::HTTP.get_response(@PRODUCTS_URI)
+    response.value # Throws an exception if the response code is not 2xx
 
-            products = get_products
-            
-            break if products == nil || products.empty?
-
-            total +=
-            products
-                .select do |product| # Filter for clocks and watches
-                    itemTypes.any? { |type| product["product_type"].downcase.include? type.downcase }
-                end
-                .flat_map do |product| # Extract prices of each variant 
-                    puts product["title"]
-                    product["variants"].map do |variant| 
-                        puts "  #{variant["title"]} -> $#{variant["price"]}"
-                        variant["price"].to_f
-                    end
-                end
-                .inject(0) { |sum, price| sum + price } # Sum the prices from all the item variants filtered
-        end
-
-        puts "TOTAL: $#{format('%.2f', total)}" # Some extra formatting to make sure we get exactly two decimals
-        total
-    end
-
-    private
-    def get_products
-        response = Net::HTTP.get_response(@ProductsUri)
-        response.value # Throws an exception if the response code is not 2xx
-
-        products = JSON.parse(response.body)["products"]
-    rescue StandardError => error
-        puts "Could not get products: #{error.message}"
-    ensure
-        products
-    end
-
+    products = JSON.parse(response.body)['products']
+  rescue StandardError => error
+    puts "Could not get products: #{error.message}"
+  ensure
+    products
+  end
 end
 
 uri = URI('http://shopicruit.myshopify.com/')
 
 processor = StoreProcessor.new(uri)
-processor2 = StoreProcessor.new(URI("http://google.com"))
+processor2 = StoreProcessor.new(URI('http://google.com'))
 
-#TODO Split these into tests
-=begin
-begin
-    processor = StoreProcessor.new("nonsense")
-rescue ArgumentError
-    p "Caught error!"
-end
+# TODO: Split these into tests
+# begin
+#     processor = StoreProcessor.new("nonsense")
+# rescue ArgumentError
+#     p "Caught error!"
+# end
+#
+# Types = [ "clock" ]
+# processor.get_filtered_total(Types); puts
+# processor.get_filtered_total([]); puts
+# processor.get_filtered_total(['Elephants']); puts
+# processor.get_filtered_total([ 'clock', 'watch' ]); puts
 
-Types = [ "clock" ]
-processor.getFilteredTotal(Types); puts
-processor.getFilteredTotal([]); puts
-processor.getFilteredTotal(["Elephants"]); puts
-processor.getFilteredTotal([ "clock", "watch" ]); puts
-=end
-
-processor.getFilteredTotal([ "clocK", "wAtch" ]); puts
-processor2.getFilteredTotal([ "clocK", "wAtch" ]); puts
+processor.get_filtered_total(%w(clocK wAtch))
+puts
+processor2.get_filtered_total(%w(clocK wAtch))
+puts
