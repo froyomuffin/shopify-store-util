@@ -43,10 +43,8 @@ class StoreProcessor
                 .inject(0) { |sum, price| sum + price } # Sum the prices from all the item variants filtered
         end
 
-        total = total.round(2)
-
         puts "TOTAL: $#{format('%.2f', total)}" # Some extra formatting to make sure we get exactly two decimals
-        return total
+        total
     end
 end
 
