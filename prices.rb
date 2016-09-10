@@ -4,6 +4,7 @@ require 'net/http'
 require 'json'
 
 class StoreProcessor
+    public
     def initialize(storeUri)
         if storeUri.class != URI::HTTP
             raise ArgumentError, "Failed to construct StoreProcessor: No URI::HTTP object specified!"
@@ -14,7 +15,7 @@ class StoreProcessor
     end
 
     def getFilteredTotal(itemTypes) 
-        puts "Getting total for item types #{itemTypes}"
+        puts "Getting total for item types #{itemTypes} from #{@ProductsUri.host}"
 
         page = 0
         total = 0
@@ -22,11 +23,11 @@ class StoreProcessor
         loop do # This part could be done more elegantly if we knew ahead of time the number of pages. We could build map and filter directly from the pages and avoid this loop 
             page += 1
             params = { :page => page }
-
             @ProductsUri.query = URI.encode_www_form(params)
-            res = Net::HTTP.get_response(@ProductsUri)
 
-            break if (products = JSON.parse(res.body)["products"]).empty?
+            products = get_products
+            
+            break if products == nil || products.empty?
 
             total +=
             products
@@ -46,12 +47,25 @@ class StoreProcessor
         puts "TOTAL: $#{format('%.2f', total)}" # Some extra formatting to make sure we get exactly two decimals
         total
     end
+
+    private
+    def get_products
+        response = Net::HTTP.get_response(@ProductsUri)
+        response.value # Throws an exception if the response code is not 2xx
+
+        products = JSON.parse(response.body)["products"]
+    rescue StandardError => error
+        puts "Could not get products: #{error.message}"
+    ensure
+        products
+    end
+
 end
 
 uri = URI('http://shopicruit.myshopify.com/')
 
 processor = StoreProcessor.new(uri)
-#processor = StoreProcessor.new(URI("http://google.com")) TODO Handle these exceptions
+processor2 = StoreProcessor.new(URI("http://google.com"))
 
 #TODO Split these into tests
 =begin
@@ -69,3 +83,4 @@ processor.getFilteredTotal([ "clock", "watch" ]); puts
 =end
 
 processor.getFilteredTotal([ "clocK", "wAtch" ]); puts
+processor2.getFilteredTotal([ "clocK", "wAtch" ]); puts
