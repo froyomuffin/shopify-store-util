@@ -3,10 +3,8 @@
 require 'net/http'
 require 'json'
 
-class InitializationError < StandardError; end
-
+# A processor used to get information from a Shopify shop.
 class StoreProcessor
-
   # Create a URI from String and test it. Either operation could throw an exception.
   # If either fails, catch their exception and focus them into a InitializationError
   def initialize(store_string)
@@ -16,9 +14,10 @@ class StoreProcessor
     raise InitializationError, error.message
   end
 
-  # Gets the total cost for all items that match a provided item type filter
+  # Gets the total cost to purchase all items of given types
   def get_filtered_total(item_types)
-    local_product_uri = @product_uri.dup # Make a copy as URI requires we modify the object to handle different queries
+    # Make a copy as URI requires we modify the object to handle different queries
+    local_product_uri = @product_uri.dup
 
     puts "Getting total for item types #{item_types} from \"#{local_product_uri}\""
 
@@ -34,23 +33,17 @@ class StoreProcessor
       params = { page: page }
       local_product_uri.query = URI.encode_www_form(params)
 
-      products = with_error_handling { fetch_products(local_product_uri) } # This is a little 
+      # A bit paranoid here. Just in case the server doesn't behave
+      products = with_error_handling { fetch_products(local_product_uri) }
 
       break if products.nil? || products.empty?
 
-      total +=
-      products
-      .select do |product| # Filter for clocks and watches
-        item_types.any? { |type| product['product_type'].downcase.include? type.downcase }
-      end
-      .flat_map do |product| # Extract prices of each variant
-        puts product['title']
-        product['variants'].map do |variant|
-          puts "  #{variant['title']} -> $#{variant['price']}"
-          variant['price'].to_f
-        end
-      end
-      .reduce(0) { |a, e| a + e } # Sum the prices from all the item variants filtered
+      filtered_products = filter_products(products, item_types)
+      print_all_prices(filtered_products)
+
+      filtered_variants_prices = all_variant_prices(filtered_products)
+
+      total += filtered_variants_prices.reduce(0, :+);
     end
 
     puts "TOTAL: $#{format('%.2f', total)}" # Some extra formatting to make sure we get exactly two decimals
@@ -59,13 +52,15 @@ class StoreProcessor
 
   private
 
-  def with_error_handling
-    yield
-  rescue StandardError => error
-    puts "#{__method__}: #{error.message}"
-    nil
+  # Build a product URI from a string describing a Shopify store
+  def build_product_uri(uri_string)
+    product_uri = URI(uri_string)
+    product_uri.path = '/products.json'
+
+    product_uri
   end
 
+  # Get a list of products
   def fetch_products(product_uri)
     puts "Fetching products from #{product_uri}"
     response = Net::HTTP.get_response(product_uri)
@@ -76,10 +71,40 @@ class StoreProcessor
     products
   end
 
-  def build_product_uri(uri_string)
-    product_uri = URI(uri_string)
-    product_uri.path = '/products.json'
+  # Get a list of filtered products
+  def filter_products(products, item_types)
+    products.select do |product|
+      item_types.any? { |type| product['product_type'].downcase.include? type.downcase }
+    end
+  end
 
-    product_uri
+  # Get a list of prices for each variant of every product from a product list
+  def all_variant_prices(products)
+    products.flat_map do |product|
+      product['variants'].map do |variant|
+        variant['price'].to_f
+      end
+    end
+  end
+
+  # Prints all variants of a product list with their prices
+  def print_all_prices(products)
+    products.each do |product|
+      puts product['title']
+      product['variants'].each do |variant|
+        puts "  #{variant['title']} -> $#{variant['price']}"
+      end
+    end
+  end
+
+  # Run the content of a block and handle errors it may raise
+  def with_error_handling
+    yield
+  rescue StandardError => error
+    puts "#{__method__}: #{error.message}"
+    nil
   end
 end
+
+# An error used during initialization
+class InitializationError < StandardError; end

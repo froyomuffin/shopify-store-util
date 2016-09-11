@@ -10,7 +10,7 @@ rescue StandardError => error
 end
 
 with_error_printing { StoreProcessor.new('http://shopicruit.myshopify.com/').get_filtered_total(%w(clocK wAtch)) }
-with_error_printing { StoreProcessor.new('http://google.com').get_filtered_total(%w(clocK wAtch))  }
+with_error_printing { StoreProcessor.new('http://google.com').get_filtered_total(%w(clocK wAtch)) }
 
 # TODO: Split these into tests
 # begin
