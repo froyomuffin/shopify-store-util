@@ -6,11 +6,20 @@ def with_error_printing
   yield
 rescue StandardError => error
   puts "#{__method__}: #{error.message}"
+  puts "#{__method__} backtrace:"
+  puts error.backtrace
   nil
 end
 
-with_error_printing { StoreProcessor.new('http://shopicruit.myshopify.com/').get_filtered_total(%w(clocK wAtch)) }
-with_error_printing { StoreProcessor.new('http://google.com').get_filtered_total(%w(clocK wAtch)) }
+with_error_printing do
+  StoreProcessor.new('http://shopicruit.myshopify.com/')
+                .get_filtered_total(%w(clocK wAtch))
+end
+
+with_error_printing do
+  StoreProcessor.new('http://google.com')
+                .get_filtered_total(%w(clocK wAtch))
+end
 
 # TODO: Split these into tests
 # begin

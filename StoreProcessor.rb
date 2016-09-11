@@ -5,8 +5,9 @@ require 'json'
 
 # A processor used to get information from a Shopify shop.
 class StoreProcessor
-  # Create a URI from String and test it. Either operation could throw an exception.
-  # If either fails, catch their exception and focus them into a InitializationError
+  # Create a URI from String and test it. Either operation could
+  # throw an exception. If either fails, catch their exception
+  # and focus them into a InitializationError
   def initialize(store_string)
     @product_uri = build_product_uri(store_string)
     fetch_products(@product_uri)
@@ -16,37 +17,37 @@ class StoreProcessor
 
   # Gets the total cost to purchase all items of given types
   def get_filtered_total(item_types)
-    # Make a copy as URI requires we modify the object to handle different queries
-    local_product_uri = @product_uri.dup
+    puts "Getting total for item types #{item_types} from \"#{@product_uri}\""
 
-    puts "Getting total for item types #{item_types} from \"#{local_product_uri}\""
-
-    page = 0
     total = 0
 
-    # TODO: This part could be done more elegantly if we knew ahead of time the number of pages.
-    # We could build map and filter directly from the pages and avoid this loop
-    # IF we do do something like that, make sure to create local_product_uri for
-    # each page, otherwise, we may get issue when running a parallel stream
-    loop do
-      page += 1
-      params = { page: page }
-      local_product_uri.query = URI.encode_www_form(params)
+    # We pick a large range of page numbers. This could be done better
+    # if we were able to determine the number of pages before interating
+    (1..9_999_999).each do |page_number|
+      # Make a copy as URI requires we modify the object to handle
+      # different queries
+      page_product_uri = @product_uri.dup
+
+      # Build a URI for the page number
+      page_product_uri.query = URI.encode_www_form(page: page_number)
 
       # A bit paranoid here. Just in case the server doesn't behave
-      products = with_error_handling { fetch_products(local_product_uri) }
+      products = with_error_handling { fetch_products(page_product_uri) }
 
-      break if products.nil? || products.empty?
+      break if products.nil?
+      break if products.empty?
 
       filtered_products = filter_products(products, item_types)
       print_all_prices(filtered_products)
 
       filtered_variants_prices = all_variant_prices(filtered_products)
 
-      total += filtered_variants_prices.reduce(0, :+);
+      total += filtered_variants_prices.reduce(0, :+)
     end
 
-    puts "TOTAL: $#{format('%.2f', total)}" # Some extra formatting to make sure we get exactly two decimals
+    # Some extra formatting to make sure we get exactly two decimals
+    puts "TOTAL: $#{format('%.2f', total)}"
+
     total
   end
 
@@ -74,7 +75,9 @@ class StoreProcessor
   # Get a list of filtered products
   def filter_products(products, item_types)
     products.select do |product|
-      item_types.any? { |type| product['product_type'].downcase.include? type.downcase }
+      item_types.any? do |type|
+        product['product_type'].downcase.include? type.downcase
+      end
     end
   end
 
@@ -102,6 +105,8 @@ class StoreProcessor
     yield
   rescue StandardError => error
     puts "#{__method__}: #{error.message}"
+    puts "#{__method__} backtrace:"
+    puts error.backtrace
     nil
   end
 end
