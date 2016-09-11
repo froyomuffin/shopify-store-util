@@ -3,28 +3,38 @@
 require 'net/http'
 require 'json'
 
-class StoreProcessor
-  def initialize(store_uri)
-    if store_uri.class != URI::HTTP
-      raise ArgumentError, 'Failed to construct StoreProcessor: No URI::HTTP object specified!'
-    end
+class InitializationError < StandardError; end
 
-    @product_uri = store_uri
-    @product_uri.path = '/products.json'
+class StoreProcessor
+
+  # Create a URI from String and test it. Either operation could throw an exception.
+  # If either fails, catch their exception and focus them into a InitializationError
+  def initialize(store_string)
+    @product_uri = build_product_uri(store_string)
+    fetch_products(@product_uri)
+  rescue StandardError => error # Focus the exceptions
+    raise InitializationError, error.message
   end
 
+  # Gets the total cost for all items that match a provided item type filter
   def get_filtered_total(item_types)
-    puts "Getting total for item types #{item_types} from #{@product_uri.host}"
+    local_product_uri = @product_uri.dup # Make a copy as URI requires we modify the object to handle different queries
+
+    puts "Getting total for item types #{item_types} from \"#{local_product_uri}\""
 
     page = 0
     total = 0
 
-    loop do # This part could be done more elegantly if we knew ahead of time the number of pages. We could build map and filter directly from the pages and avoid this loop
+    # TODO: This part could be done more elegantly if we knew ahead of time the number of pages.
+    # We could build map and filter directly from the pages and avoid this loop
+    # IF we do do something like that, make sure to create local_product_uri for
+    # each page, otherwise, we may get issue when running a parallel stream
+    loop do
       page += 1
       params = { page: page }
-      @product_uri.query = URI.encode_www_form(params)
+      local_product_uri.query = URI.encode_www_form(params)
 
-      products = fetch_products
+      products = with_error_handling { fetch_products(local_product_uri) } # This is a little 
 
       break if products.nil? || products.empty?
 
@@ -49,22 +59,43 @@ class StoreProcessor
 
   private
 
-  def fetch_products
-    response = Net::HTTP.get_response(@product_uri)
+  def with_error_handling
+    yield
+  rescue StandardError => error
+    puts "#{__method__}: #{error.message}"
+    nil
+  end
+
+  def fetch_products(product_uri)
+    puts "Fetching products from #{product_uri}"
+    response = Net::HTTP.get_response(product_uri)
     response.value # Throws an exception if the response code is not 2xx
 
     products = JSON.parse(response.body)['products']
-  rescue StandardError => error
-    puts "Could not get products: #{error.message}"
-  ensure
+
     products
   end
+
+  def build_product_uri(uri_string)
+    product_uri = URI(uri_string)
+    product_uri.path = '/products.json'
+
+    product_uri
+  end
+
 end
 
-uri = URI('http://shopicruit.myshopify.com/')
+# TODO: Move out everything under this line
 
-processor = StoreProcessor.new(uri)
-processor2 = StoreProcessor.new(URI('http://google.com'))
+def with_error_printing
+  yield
+rescue StandardError => error
+  puts "#{__method__}: #{error.message}"
+  nil
+end
+
+with_error_printing { StoreProcessor.new('http://shopicruit.myshopify.com/').get_filtered_total(%w(clocK wAtch)) }
+with_error_printing { StoreProcessor.new('http://google.com').get_filtered_total(%w(clocK wAtch))  }
 
 # TODO: Split these into tests
 # begin
@@ -78,8 +109,3 @@ processor2 = StoreProcessor.new(URI('http://google.com'))
 # processor.get_filtered_total([]); puts
 # processor.get_filtered_total(['Elephants']); puts
 # processor.get_filtered_total([ 'clock', 'watch' ]); puts
-
-processor.get_filtered_total(%w(clocK wAtch))
-puts
-processor2.get_filtered_total(%w(clocK wAtch))
-puts
