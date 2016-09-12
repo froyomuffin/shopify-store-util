@@ -34,12 +34,16 @@ class StoreProcessor
       # Build a URI for the page number
       page_product_uri.query = URI.encode_www_form(page: page_number)
 
-      products = with_error_handling { fetch_products(page_product_uri) }
+      products = with_error_handling do 
+        puts "Checking products on page #{page_number}"
+        fetch_products(page_product_uri)
+      end
 
       break if products.nil?
       break if products.empty?
 
       filtered_products = filter_products(products, item_types)
+
       print_all_prices(filtered_products)
 
       filtered_variants_prices = all_variant_prices(filtered_products)
@@ -69,7 +73,6 @@ class StoreProcessor
 
   # Get a list of products
   def fetch_products(product_uri)
-    puts "Fetching products from \"#{product_uri}\""
     response = Net::HTTP.get_response(product_uri)
     response.value # Throws an exception if the response code is not 2xx
 
