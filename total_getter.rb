@@ -30,5 +30,21 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-StoreProcessor.new(options.store_uri)
-  .get_filtered_total(options.types)
+def carefully
+  yield
+rescue StandardError => error
+  puts
+
+  puts "Error message: #{error.message}"
+  puts "Error backtrace:"
+  puts error.backtrace
+
+  puts
+
+  puts"Couldn't get the total! :("
+end
+
+carefully do 
+  StoreProcessor.new(options.store_uri)
+                .get_filtered_total(options.types)
+end

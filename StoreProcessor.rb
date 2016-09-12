@@ -9,7 +9,10 @@ class StoreProcessor
   # throw an exception. If either fails, catch their exception
   # and focus them into a InitializationError
   def initialize(store_string)
+    puts "Trying to create URI on \"#{store_string}\""
     @product_uri = build_product_uri(store_string)
+
+    puts "Testing connectivity to \"#{@product_uri}\"..."
     fetch_products(@product_uri)
   rescue StandardError => error # Focus the exceptions
     raise InitializationError, error.message
@@ -57,12 +60,16 @@ class StoreProcessor
     product_uri = URI(uri_string)
     product_uri.path = '/products.json'
 
+    if product_uri.host.nil?
+      raise URI::InvalidURIError, "Couldn't create a URI with a valid host!"
+    end
+
     product_uri
   end
 
   # Get a list of products
   def fetch_products(product_uri)
-    puts "Fetching products from #{product_uri}"
+    puts "Fetching products from \"#{product_uri}\""
     response = Net::HTTP.get_response(product_uri)
     response.value # Throws an exception if the response code is not 2xx
 
