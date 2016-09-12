@@ -22,7 +22,7 @@ class StoreProcessor
     total = 0
 
     # We pick a large range of page numbers. This could be done better
-    # if we were able to determine the number of pages before interating
+    # if we were able to determine the number of pages before iterating
     (1..9_999_999).each do |page_number|
       # Make a copy as URI requires we modify the object to handle
       # different queries
@@ -31,7 +31,6 @@ class StoreProcessor
       # Build a URI for the page number
       page_product_uri.query = URI.encode_www_form(page: page_number)
 
-      # A bit paranoid here. Just in case the server doesn't behave
       products = with_error_handling { fetch_products(page_product_uri) }
 
       break if products.nil?
@@ -67,9 +66,7 @@ class StoreProcessor
     response = Net::HTTP.get_response(product_uri)
     response.value # Throws an exception if the response code is not 2xx
 
-    products = JSON.parse(response.body)['products']
-
-    products
+    JSON.parse(response.body)['products']
   end
 
   # Get a list of filtered products
@@ -107,6 +104,7 @@ class StoreProcessor
     puts "#{__method__}: #{error.message}"
     puts "#{__method__} backtrace:"
     puts error.backtrace
+
     nil
   end
 end
