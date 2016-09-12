@@ -45,6 +45,10 @@ rescue StandardError => error
 end
 
 carefully do 
-  StoreProcessor.new(options.store_uri)
-                .get_filtered_total(options.types)
+  processor = StoreProcessor.new(options.store_uri)
+  if options.types.empty?
+    processor.print_types
+  else
+    processor.get_filtered_total(options.types)
+  end
 end

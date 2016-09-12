@@ -18,30 +18,21 @@ class StoreProcessor
     raise InitializationError, error.message
   end
 
-  # Gets the total cost to purchase all items of given types
+  # Print a list of available types in the store
+  def print_types
+    list = list_types
+
+    puts 'The available types are:'
+    puts list
+  end
+
+  # Find the total cost to purchase all items of given types
   def get_filtered_total(item_types)
     puts "Getting total for item types #{item_types} from \"#{@product_uri}\""
 
     total = 0
 
-    # We pick a large range of page numbers. This could be done better
-    # if we were able to determine the number of pages before iterating
-    (1..9_999_999).each do |page_number|
-      # Make a copy as URI requires we modify the object to handle
-      # different queries
-      page_product_uri = @product_uri.dup
-
-      # Build a URI for the page number
-      page_product_uri.query = URI.encode_www_form(page: page_number)
-
-      products = with_error_handling do 
-        puts "Checking products on page #{page_number}"
-        fetch_products(page_product_uri)
-      end
-
-      break if products.nil?
-      break if products.empty?
-
+    products_of_each_page do |products|
       filtered_products = filter_products(products, item_types)
 
       print_all_prices(filtered_products)
@@ -116,6 +107,50 @@ class StoreProcessor
     puts error.backtrace
 
     nil
+  end
+
+  # Go through each store page
+  def each_page
+    # We pick a large range of page numbers. This could be done better
+    # if we were able to determine the number of pages before iterating
+    (1..9_999_999).each do |page_number|
+      yield page_number
+    end
+  end
+
+  # Go through the products of each page
+  def products_of_each_page
+    each_page do |page_number|
+      # Make a copy as URI requires we modify the object to handle
+      # different queries
+      page_product_uri = @product_uri.dup
+
+      # Build a URI for the page number
+      page_product_uri.query = URI.encode_www_form(page: page_number)
+
+      products = with_error_handling do
+        puts "Checking products on page #{page_number}"
+        fetch_products(page_product_uri)
+      end
+
+      break if products.nil?
+      break if products.empty?
+
+      yield products
+    end
+  end
+
+  # Gets the types available in the store
+  def list_types
+    puts "Getting available shop types from \"#{@product_uri}\""
+
+    types = []
+
+    products_of_each_page do |products|
+      types += products.map { |product| product['product_type'] }
+    end
+
+    types.uniq
   end
 end
 
