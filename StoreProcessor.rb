@@ -64,10 +64,25 @@ class StoreProcessor
 
   # Get a list of products
   def fetch_products(product_uri)
-    response = Net::HTTP.get_response(product_uri)
+    response = fetch_response(product_uri)
     response.value # Throws an exception if the response code is not 2xx
 
     JSON.parse(response.body)['products']
+  end
+
+  # Get a response from a URI. Follow a redirect if needed.
+  def fetch_response(product_uri)
+    next_uri = product_uri
+
+    loop do
+      response = Net::HTTP.get_response(next_uri)
+
+      return response unless response.is_a? Net::HTTPRedirection
+
+      next_uri = URI(response['location'])
+
+      puts "Following redirect to \"#{next_uri}\"}"
+    end
   end
 
   # Get a list of filtered products
