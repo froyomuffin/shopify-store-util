@@ -94,7 +94,6 @@ class StoreProcessor
       puts product['title']
       product['variants'].each do |variant|
         puts "  #{variant['title']} -> $#{variant['price']}"
-      end
     end
   end
 
@@ -109,6 +108,27 @@ class StoreProcessor
     nil
   end
 
+  # Find the last product page
+  def last_product_page
+    start_page = 1
+    end_page = 20
+
+    while condition_clever
+      range = end_page - start_page
+
+      if products_of_page(end_page).nil?
+        # We've gone too far. The last page is before 'end_page'. Reduce the end page.
+        end_page -= range / 2
+      else
+        # We haven't passed the last page. Last page is after 'end_page'. Reseat our search frame by 
+        start_page = end_page
+        end_page += range 
+      end
+    end
+
+    end_page
+  end
+
   # Go through each store page
   def each_page
     # We pick a large range of page numbers. This could be done better
@@ -118,20 +138,25 @@ class StoreProcessor
     end
   end
 
+  # Get the products of a given page
+  def products_of_page(page_number)
+    # Make a copy as URI requires we modify the object to handle
+    # different queries
+    page_product_uri = @product_uri.dup
+
+    # Build a URI for the page number
+    page_product_uri.query = URI.encode_www_form(page: page_number)
+
+    with_error_handling do
+      puts "Checking products on page #{page_number}"
+      fetch_products(page_product_uri)
+    end
+  end
+
   # Go through the products of each page
   def products_of_each_page
     each_page do |page_number|
-      # Make a copy as URI requires we modify the object to handle
-      # different queries
-      page_product_uri = @product_uri.dup
-
-      # Build a URI for the page number
-      page_product_uri.query = URI.encode_www_form(page: page_number)
-
-      products = with_error_handling do
-        puts "Checking products on page #{page_number}"
-        fetch_products(page_product_uri)
-      end
+      products = products_of_page(page_number)
 
       break if products.nil?
       break if products.empty?
